@@ -1,0 +1,47 @@
+# Jenkins Configuration-as-Code for Wonderland's controller.
+#
+# The Cheshire Cat mis-configuration (CICD-SEC-5, Insufficient PBAC): Wonderland policy is that
+# application builds run on dedicated agents, never on the controller — yet the controller's own
+# Built-In Node is left with executors (numExecutors: 2). It is in EXCLUSIVE usage mode, so it only
+# runs jobs whose label expression matches it; but its label is the well-known `built-in`, so any
+# pipeline that explicitly pins `agent { label 'built-in' }` runs on the controller, where flag5.txt
+# sits in the home directory. The flag is NOT a credential and NOT in this file or the image; it is a
+# root-only file the entrypoint stages from the per-player input at run time.
+jenkins:
+  systemMessage: "Wonderland CI — application builds run on dedicated agents, not on the controller."
+  # The Built-In Node (the controller) keeps executors (the PBAC hole) ...
+  numExecutors: 2
+  # ... but in EXCLUSIVE mode it only runs jobs whose label matches it — i.e. ones that explicitly
+  # ask for `built-in`. Ordinary `agent any` / labelled jobs go to the (dedicated) build agents.
+  mode: EXCLUSIVE
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "admin"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+security:
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              id: "gitea-jenkins"
+              scope: GLOBAL
+              username: "jenkins"
+              password: "jenkins"
+              description: "Gitea read access for polling repositories"
+
+unclassified:
+  location:
+    url: "http://jenkins:8080/"
+
+jobs:
+  - file: /usr/share/jenkins/casc/jobdsl/cheshire-cat.groovy

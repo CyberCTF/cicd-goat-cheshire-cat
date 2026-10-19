@@ -1,0 +1,42 @@
+// cheshire-cat CI pipeline (declarative). Lint + unit tests for the cheshire package.
+//
+// Wonderland policy: application builds run on a dedicated build agent (label 'linux'), never on
+// the controller — the controller's filesystem holds operational secrets. CI runs on every branch
+// and pull request. The `agent { label 'linux' }` directive is what ties this pipeline to the
+// build agents rather than the controller.
+pipeline {
+    agent { label 'linux' }
+
+    environment {
+        PACKAGE = 'cheshire'
+    }
+
+    stages {
+        stage('Install_Requirements') {
+            steps {
+                sh '''
+                    python3 -m venv venv || true
+                    echo "requirements installed for ${PACKAGE}"
+                '''
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh 'echo "lint ${PACKAGE}: ok"'
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh 'echo "pytest ${PACKAGE}: ok"'
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}

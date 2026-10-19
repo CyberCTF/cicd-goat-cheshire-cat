@@ -1,0 +1,11 @@
+# Jenkins plugins for the cheshire-cat lab. jenkins-plugin-cli resolves compatible versions for the
+# pinned controller. Just enough for: config-as-code, a Job DSL seed job, a git-backed multibranch
+# pipeline that polls Gitea, and the username/password credential the poller uses. No credential
+# binding is needed — the flag is a file on the controller, not a Jenkins credential.
+configuration-as-code
+job-dsl
+git
+workflow-aggregator
+workflow-multibranch
+credentials
+ws-cleanup

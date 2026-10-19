@@ -1,0 +1,19 @@
+{
+  "objectives": [
+    {
+      "key": "cheshire-cat",
+      "title": "Cheshire Cat",
+      "prompt": "\"I prefer the short cut.\" Wonderland runs CI on Jenkins, building the Wonderland/cheshire-cat repository (hosted on Gitea) on every branch and pull request. Policy says application builds run on dedicated agents, never on the controller — the controller's filesystem holds operational secrets, including flag5.txt in its home directory. But the controller is still a node. You have write access to the repository. Clone it, modify the Jenkinsfile to pin the pipeline to the controller's Built-In Node and print flag5.txt in a form the console keeps intact, push the branch and open a pull request. When the pipeline runs, read the build's console output, recover the value, and submit the flag.",
+      "check": { "evidence": "SECRET", "format": "%s" },
+      "dev": "cc-dev-flag-not-a-real-secret-0000",
+      "capabilities": [
+        "pbac-controller-escape-jenkins"
+      ],
+      "hints": [
+        "A Jenkinsfile chooses the node a job runs on with its `agent` directive. `agent { label '<name>' }` ties the whole pipeline to a node carrying that label.",
+        "The Jenkins controller is itself a node: the Built-In Node, whose label is `built-in`. Its filesystem — including the home directory where flag5.txt lives — is only reachable from a job running ON it.",
+        "The multibranch pipeline builds every branch that has a Jenkinsfile and rescans about once a minute. Push a branch whose Jenkinsfile pins `agent { label 'built-in' }` and runs `cat ~/flag5.txt | rev | base64` (open a pull request too); the build starts on its own. Read it under the wonderland-cheshire-cat job, then `base64 -d | rev` to recover the flag."
+      ]
+    }
+  ]
+}

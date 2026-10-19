@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=https://www.isoloom.com/schema/v1.json
+# Cheshire Cat (CI/CD Goat, CICD-SEC-4 Poisoned Pipeline Execution + CICD-SEC-5 Insufficient PBAC):
+# a live, two-machine CI/CD lab. A Jenkins controller runs a multibranch pipeline for Wonderland's
+# cheshire-cat repository, hosted on a Gitea server. Wonderland policy is that application builds run
+# on dedicated build agents, never on the controller — the controller's filesystem holds operational
+# secrets (flag5.txt in its home, root-only). But the controller's own Built-In Node still has
+# executors (numExecutors: 2) and accepts jobs that explicitly target its label. Nothing stops a
+# pipeline from pinning `agent { label 'built-in' }` to run on the controller itself, read the file
+# and exfiltrate it. An attacker with write access to the repo pushes a branch whose Jenkinsfile does
+# exactly that; the SCM-poll trigger builds it and the flag lands in the build console. This is
+# Direct-PPE escaping weak pipeline-based access controls. See https://www.isoloom.com.
+version: 1
+name: cicd-goat-cheshire-cat
+
+networks:
+  lab: { cidr: 10.42.0.0/24 }
+
+# The per-player flag, issued by CyberCTF and handed to the lab by the launcher as a FILE (never an
+# environment value, so it never shows in `docker inspect`, an image layer or a generated file). The
+# Jenkins entrypoint stages it onto the controller's filesystem as a root-only file in the home
+# directory (flag5.txt) — NOT a Jenkins credential; it is a filesystem secret, which is the whole
+# point of the challenge. Optional: an offline start (local, CI) leaves it empty and the lab stages
+# its inert development placeholder instead, so the lab still comes up and is solvable.
+#   CTF_FLAG_CHESHIRE_CAT  objective `cheshire-cat`  (SECRET: Wonderland's flag5, on the controller)
+inputs:
+  CTF_FLAG_CHESHIRE_CAT:
+    description: the cheshire-cat flag, staged onto the Jenkins controller's filesystem as flag5.txt
+
+machines:
+  # Wonderland's git host: Gitea, holding the private Wonderland/cheshire-cat repository. The setup
+  # job provisions the org, the attacker user (alice, write) and the Jenkins poller (jenkins, read),
+  # then pushes the sample project with its Jenkinsfile. No `publish` number: `publish: true` asks
+  # the runner for a free host port it picks at `up` time (dynamic), so two labs never collide.
+  gitea:
+    app:
+      build: build/gitea
+    networks: { lab: 12 }
+    resources: { cpus: 1, memory_mb: 1024 }
+    volumes: { data: /data }
+    ports:
+      web: { port: 3000, protocol: http, publish: true }
+    setup: [build/gitea/seed.sh]
+
+  # Wonderland's Jenkins controller: a git-backed multibranch pipeline for cheshire-cat, rescanned
+  # every minute (the SCM-poll trigger). The controller's Built-In Node is in EXCLUSIVE usage mode
+  # (it only runs jobs whose label matches it) but it still has executors — the upstream PBAC
+  # mis-configuration. flag5 is a root-only file in the controller's home, staged at run time from
+  # the per-player input; only the entrypoint and a pipeline running ON the controller can read it.
+  jenkins:
+    app:
+      build: build/jenkins
+    networks: { lab: 10 }
+    resources: { cpus: 2, memory_mb: 2048 }
+    ports:
+      web: { port: 8080, protocol: http, publish: true }
+    files:
+      - { path: /run/lab/secrets/flag5, input: CTF_FLAG_CHESHIRE_CAT }
+
+# From the player's side, on every target: reachability checks that both services answer, and the
+# intended path as a solver that runs inside the Jenkins controller — it performs Direct-PPE end to
+# end (clone with the attacker's write creds, poison the Jenkinsfile to pin `built-in` and read the
+# controller file, push + open a PR, read the build console) and proves the controller-only file was
+# exfiltrated, without ever printing it. Jenkins is slow to boot and the pipeline needs a scan + a
+# build, so the waits are generous.
+checks:
+  - name: the Gitea git host answers
+    http: http://gitea:3000/
+    wait: 3m
+  - name: the Jenkins controller answers
+    http: http://jenkins:8080/login
+    wait: 5m
+  - name: flag5 is exfiltrated from the controller filesystem via a pipeline pinned to built-in
+    from: jenkins
+    exec: bash /usr/local/bin/cc-solve
+    wait: 6m
+
+# Shown when the lab is up.
+message: |
+  Wonderland runs CI on **Jenkins**, building the **Wonderland/cheshire-cat** repository hosted on
+  **Gitea** on every branch and pull request. You have an account with **write** access to the repo.
+
+  - Gitea:   {{ machines.gitea.ports.web.url }}   (sign in as `alice` / `alice`)
+  - Jenkins: {{ machines.jenkins.ports.web.url }} (sign in as `admin` / `admin` to read build consoles)
+
+  Wonderland's policy is that application builds run on **dedicated build agents**, never on the
+  controller — because the controller's filesystem holds operational secrets, including `flag5.txt`
+  in its home directory. But the controller is still a node. Clone the repository, and remember:
+  whoever controls the `Jenkinsfile` controls **which node** the pipeline runs on.
+
+  ```
+  git clone {{ machines.gitea.ports.web.url }}Wonderland/cheshire-cat.git
+  ```
+
+  The controller's own node is the **Built-In Node** (`label 'built-in'`). Pin the pipeline to it,
+  read `~/flag5.txt`, and print it in a form the console keeps intact (e.g. `cat ~/flag5.txt | rev |
+  base64`), push the branch and open a pull request; then read the build's console output in Jenkins.

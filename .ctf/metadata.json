@@ -1,0 +1,13 @@
+{
+  "project_name": "cyberlabs-cicd-goat-cheshire-cat",
+  "slug": "cicd-goat-cheshire-cat",
+  "title": "Cheshire Cat: pipeline escape to the Jenkins controller",
+  "description": "A Jenkins controller builds Wonderland's cheshire-cat repository (hosted on Gitea) on every branch and pull request. Policy says application builds run on dedicated agents, never on the controller, because the controller's filesystem holds operational secrets (flag5.txt in its home, root-only). But the controller's Built-In Node still has executors and accepts jobs that target its label, so nothing stops a pipeline from pinning agent { label 'built-in' } to run on the controller itself, read the file and exfiltrate it. An attacker with write access modifies the Jenkinsfile to do exactly that, then pushes a branch / opens a pull request to run it (OWASP CICD-SEC-4 Direct Poisoned Pipeline Execution, exploiting CICD-SEC-5 Insufficient Pipeline-Based Access Controls). Reproduces the \"Cheshire Cat\" challenge from CI/CD Goat.",
+  "category": "cicd",
+  "difficulty": 2,
+  "evidence_kind": "SECRET",
+  "capabilities": [
+    "pbac-controller-escape-jenkins"
+  ],
+  "question": "Escape the dedicated build agents by pinning the cheshire-cat pipeline to the Jenkins controller's Built-In Node, then read flag5.txt from the controller's filesystem."
+}
