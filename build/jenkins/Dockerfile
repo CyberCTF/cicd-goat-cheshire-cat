@@ -4,7 +4,8 @@
 # per-player input Isoloom mounts at run time. Jenkins runs as root with HOME=/root, so a pipeline
 # that runs ON the controller's Built-In Node can read that root-only file — which is the whole point
 # of the challenge (CICD-SEC-5: the controller's node should not run pipelines, but it still can).
-FROM jenkins/jenkins:lts-jdk21
+# jenkins/jenkins:lts-jdk21, pinned to its multi-arch digest as resolved on 2026-11-11.
+FROM jenkins/jenkins:lts-jdk21@sha256:74401de6a6f92e1afe1b02d1c8e3d0c33f263bfb5275dd8813f9150355f2367b
 
 USER root
 
